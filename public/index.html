@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>비서 2명</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2f6fed">
 <style>
   body { font-family: system-ui, sans-serif; margin: 0; background: #f5f5f7; color: #1d1d1f; }
   main { max-width: 900px; margin: 0 auto; padding: 16px; }
@@ -54,6 +57,7 @@ function pair(a, b) {
   out.append(r);
 }
 
+try { $('pw').value = localStorage.getItem('pw') || ''; } catch {}
 fetch('/api/status').then((r) => r.json()).then((s) => {
   if (s.needsPassword) $('pw').hidden = false;
   if (!s.openai || !s.anthropic) $('msg').textContent = '서버에 API 키가 아직 설정되지 않았어요.';
@@ -63,6 +67,7 @@ $('go').onclick = async () => {
   const question = $('q').value.trim();
   if (!question) return;
   $('go').disabled = true;
+  try { localStorage.setItem('pw', $('pw').value); } catch {}
   out.textContent = '';
   $('msg').textContent = '두 비서가 답하는 중… (1~2분 걸릴 수 있어요)';
   try {

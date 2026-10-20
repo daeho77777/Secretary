@@ -84,3 +84,14 @@ test('빈 질문과 키 없음은 거절해요', async () => {
     assert.equal((await ask(app, '질문')).status, 500);
   });
 });
+
+test('휴대폰 설치용 파일(manifest, 아이콘)을 내려줘요', () =>
+  withApp({}, {}, async (app) => {
+    const base = `http://localhost:${app.address().port}`;
+    const m = await fetch(`${base}/manifest.webmanifest`);
+    assert.equal(m.status, 200);
+    assert.equal((await m.json()).display, 'standalone');
+    assert.equal((await fetch(`${base}/icon.svg`)).status, 200);
+    assert.equal((await fetch(`${base}/`)).status, 200);
+    assert.equal((await fetch(`${base}/server.mjs`)).status, 404);
+  }));

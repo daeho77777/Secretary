@@ -4,7 +4,12 @@ import { timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { config, roundtable } from './lib.mjs';
 
-const PAGE = fileURLToPath(new URL('./public/index.html', import.meta.url));
+const STATIC = {
+  '/': ['index.html', 'text/html; charset=utf-8'],
+  '/index.html': ['index.html', 'text/html; charset=utf-8'],
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
+  '/icon.svg': ['icon.svg', 'image/svg+xml'],
+};
 const MAX_QUESTION = 4000;
 
 function authorized(req, password) {
@@ -31,9 +36,10 @@ export function createServer(env = process.env) {
 
   return http.createServer(async (req, res) => {
     try {
-      if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(await readFile(PAGE));
+      if (req.method === 'GET' && STATIC[req.url]) {
+        const [file, type] = STATIC[req.url];
+        res.writeHead(200, { 'content-type': type });
+        res.end(await readFile(fileURLToPath(new URL(`./public/${file}`, import.meta.url))));
         return;
       }
       if (req.method === 'GET' && req.url === '/api/status') {
