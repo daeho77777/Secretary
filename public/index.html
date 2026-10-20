@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>비서 2명</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2f6fed">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f5f5f7; color: #1d1d1f; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; }
+  textarea, input { width: 100%; box-sizing: border-box; font-size: 1.05rem; padding: 12px; border: 1px solid #bbb; border-radius: 10px; }
+  textarea { min-height: 110px; }
+  button { font-size: 1.1rem; padding: 12px 20px; border: 0; border-radius: 10px; background: #2f6fed; color: #fff; margin-top: 10px; }
+  button:disabled { background: #999; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  .card { background: #fff; border-radius: 12px; padding: 14px; margin-top: 12px; }
+  .card h2 { font-size: 1rem; margin: 0 0 8px; }
+  .card div { white-space: pre-wrap; line-height: 1.6; }
+  .err { color: #b00020; }
+  .sum { border: 2px solid #2f6fed; }
+  .note { color: #666; font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🤝 비서 2명 (GPT + Claude)</h1>
+  <p class="note">질문하면 두 비서가 각자 답하고, 서로 검토한 뒤, 합의점과 차이점을 정리해요. 중요한 결정은 꼭 원자료와 전문가로 확인하세요.</p>
+  <input id="pw" type="password" placeholder="비밀번호" hidden>
+  <textarea id="q" placeholder="예) 월세 수입용 소형 오피스텔 투자할 때 확인할 점은?"></textarea>
+  <button id="go">물어보기</button>
+  <p id="msg" class="note"></p>
+  <section id="out"></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const out = $('out');
+
+function card(title, text, cls = '') {
+  const c = document.createElement('div');
+  c.className = 'card ' + cls;
+  const h = document.createElement('h2');
+  h.textContent = title;
+  const d = document.createElement('div');
+  d.textContent = text;
+  if (text.startsWith('오류:')) d.className = 'err';
+  c.append(h, d);
+  return c;
+}
+function pair(a, b) {
+  const r = document.createElement('div');
+  r.className = 'row';
+  r.append(a, b);
+  out.append(r);
+}
+
+try { $('pw').value = localStorage.getItem('pw') || ''; } catch {}
+fetch('/api/status').then((r) => r.json()).then((s) => {
+  if (s.needsPassword) $('pw').hidden = false;
+  if (!s.openai || !s.anthropic) $('msg').textContent = '서버에 API 키가 아직 설정되지 않았어요.';
+});
+
+$('go').onclick = async () => {
+  const question = $('q').value.trim();
+  if (!question) return;
+  $('go').disabled = true;
+  try { localStorage.setItem('pw', $('pw').value); } catch {}
+  out.textContent = '';
+  $('msg').textContent = '두 비서가 답하는 중… (1~2분 걸릴 수 있어요)';
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-app-password': $('pw').value },
+      body: JSON.stringify({ question }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || res.status);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i);
+        buf = buf.slice(i + 1);
+        if (line) show(JSON.parse(line));
+      }
+    }
+  } catch (e) {
+    $('msg').textContent = '실패: ' + e.message;
+  } finally {
+    $('go').disabled = false;
+  }
+};
+
+function show(ev) {
+  if (ev.stage === 'answers') {
+    pair(card('GPT 답변', ev.gpt.text), card('Claude 답변', ev.claude.text));
+    $('msg').textContent = '서로 검토하는 중…';
+  } else if (ev.stage === 'reviews') {
+    pair(card('GPT가 Claude를 검토', ev.gptReview.text), card('Claude가 GPT를 검토', ev.claudeReview.text));
+    $('msg').textContent = '종합하는 중…';
+  } else if (ev.stage === 'summary') {
+    out.append(card('📌 종합 정리', ev.summary.text, 'sum'));
+  } else if (ev.stage === 'done') {
+    $('msg').textContent = ev.note || '완료';
+  }
+}
+</script>
+</body>
+</html>

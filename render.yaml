@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: secretary
+    runtime: node
+    buildCommand: "true"
+    startCommand: node server.mjs
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: APP_PASSWORD
+        sync: false

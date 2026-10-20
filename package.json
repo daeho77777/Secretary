@@ -1,0 +1,12 @@
+{
+  "name": "secretary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "비서 2명: GPT와 Claude가 각자 답하고 서로 검토하는 웹앱",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/roundtable.test.mjs"
+  },
+  "engines": { "node": ">=18" }
+}
